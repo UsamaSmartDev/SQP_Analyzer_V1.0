@@ -1,0 +1,5 @@
+{
+  "name": "Amazon SQP Analyzer",
+  "description": "A powerful tool to analyze Amazon Search Query Performance reports, providing deep insights into search trends, CTR, and conversion rates.",
+  "requestFramePermissions": []
+}
