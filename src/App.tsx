@@ -74,9 +74,10 @@ export default function App() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'comparison'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'comparison' | 'funnel' | 'keywords'>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: keyof SQPData; direction: 'asc' | 'desc' } | null>(null);
+  const [dashboardMetric, setDashboardMetric] = useState<keyof SQPData>('brandImpressionShare');
 
   const parseFile = (file: File): Promise<Dataset> => {
     return new Promise((resolve, reject) => {
@@ -226,6 +227,111 @@ export default function App() {
     };
   }, [datasets]);
 
+  const funnelData = useMemo(() => {
+    if (data.length === 0) return [];
+    
+    const total = {
+      impressions: data.reduce((acc, curr) => acc + curr.impressions, 0),
+      clicks: data.reduce((acc, curr) => acc + curr.clicks, 0),
+      cartAdds: data.reduce((acc, curr) => acc + curr.cartAdds, 0),
+      purchases: data.reduce((acc, curr) => acc + curr.purchases, 0),
+    };
+
+    const brand = {
+      impressions: data.reduce((acc, curr) => acc + curr.brandImpressions, 0),
+      clicks: data.reduce((acc, curr) => acc + curr.brandClicks, 0),
+      cartAdds: data.reduce((acc, curr) => acc + curr.brandCartAdds, 0),
+      purchases: data.reduce((acc, curr) => acc + curr.brandPurchases, 0),
+    };
+
+    return [
+      { step: 'Impressions', total: total.impressions, brand: brand.impressions, share: (brand.impressions / total.impressions) * 100 },
+      { step: 'Clicks', total: total.clicks, brand: brand.clicks, share: (brand.clicks / total.clicks) * 100 },
+      { step: 'Cart Adds', total: total.cartAdds, brand: brand.cartAdds, share: (brand.cartAdds / total.cartAdds) * 100 },
+      { step: 'Purchases', total: total.purchases, brand: brand.purchases, share: (brand.purchases / total.purchases) * 100 },
+    ];
+  }, [data]);
+
+  const keywordInsights = useMemo(() => {
+    if (data.length === 0) return [];
+    
+    const words: Record<string, { count: number; volume: number; brandPurchases: number; avgShare: number }> = {};
+    const stopWords = new Set(['the', 'and', 'for', 'with', 'from', 'this', 'that', 'your', 'their', 'our', 'its', 'about', 'into', 'over', 'under', 'through', 'between', 'among', 'during', 'before', 'after', 'above', 'below', 'around', 'across', 'against', 'along', 'around', 'at', 'by', 'for', 'from', 'in', 'into', 'near', 'of', 'off', 'on', 'onto', 'out', 'over', 'through', 'to', 'up', 'with']);
+
+    data.forEach(item => {
+      const parts = item.query.toLowerCase().split(/\s+/).filter(w => w.length > 2 && !stopWords.has(w));
+      parts.forEach(word => {
+        if (!words[word]) words[word] = { count: 0, volume: 0, brandPurchases: 0, avgShare: 0 };
+        words[word].count += 1;
+        words[word].volume += item.volume;
+        words[word].brandPurchases += item.brandPurchases;
+        words[word].avgShare += item.brandImpressionShare;
+      });
+    });
+
+    return Object.entries(words)
+      .map(([word, stats]) => ({
+        word,
+        ...stats,
+        avgShare: stats.avgShare / stats.count
+      }))
+      .sort((a, b) => b.volume - a.volume)
+      .slice(0, 20);
+  }, [data]);
+
+  const topMovers = useMemo(() => {
+    if (datasets.length < 2) return null;
+    const current = datasets[datasets.length - 1];
+    const previous = datasets[datasets.length - 2];
+    
+    const prevMap = new Map<string, SQPData>(previous.data.map(d => [d.query, d]));
+    
+    const movers = current.data.map(curr => {
+      const prev = prevMap.get(curr.query);
+      if (!prev) return null;
+      
+      return {
+        query: curr.query,
+        volumeDelta: curr.volume - prev.volume,
+        shareDelta: curr.brandImpressionShare - prev.brandImpressionShare,
+        purchaseDelta: curr.brandPurchases - prev.brandPurchases,
+      };
+    }).filter((m): m is { query: string; volumeDelta: number; shareDelta: number; purchaseDelta: number } => m !== null);
+
+    return {
+      volume: [...movers].sort((a, b) => b.volumeDelta - a.volumeDelta).slice(0, 5),
+      share: [...movers].sort((a, b) => b.shareDelta - a.shareDelta).slice(0, 5),
+      decline: [...movers].sort((a, b) => a.volumeDelta - b.volumeDelta).slice(0, 5),
+    };
+  }, [datasets]);
+
+  const exportToCSV = () => {
+    const headers = ['Search Query', 'Volume', 'Impression Share', 'Click Share', 'Cart Add Share', 'Purchase Share', 'CTR', 'CVR'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredData.map(item => [
+        `"${item.query}"`,
+        item.volume,
+        item.brandImpressionShare.toFixed(2),
+        item.brandClickShare.toFixed(2),
+        item.brandCartAddShare.toFixed(2),
+        item.brandPurchaseShare.toFixed(2),
+        item.ctr.toFixed(2),
+        item.cvr.toFixed(2)
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `sqp_export_${activeDataset?.name || 'data'}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const filteredData = useMemo(() => {
     let result = data.filter(item => 
       item.query.toLowerCase().includes(searchTerm.toLowerCase())
@@ -354,6 +460,26 @@ export default function App() {
             </button>
           )}
           <button
+            onClick={() => setActiveTab('funnel')}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-[13px]",
+              activeTab === 'funnel' ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-gray-500 hover:bg-gray-50"
+            )}
+          >
+            <Filter className="w-4 h-4" />
+            <span className="hidden md:block">Funnel Analysis</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('keywords')}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-[13px]",
+              activeTab === 'keywords' ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-gray-500 hover:bg-gray-50"
+            )}
+          >
+            <Search className="w-4 h-4" />
+            <span className="hidden md:block">Keyword Insights</span>
+          </button>
+          <button
             onClick={() => setActiveTab('table')}
             className={cn(
               "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-[13px]",
@@ -393,7 +519,11 @@ export default function App() {
         <header className="h-16 bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-40 px-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-base font-bold text-gray-900">
-              {activeTab === 'dashboard' ? 'Market Overview' : activeTab === 'comparison' ? 'Period Comparison' : 'Search Query Database'}
+              {activeTab === 'dashboard' ? 'Market Overview' : 
+               activeTab === 'comparison' ? 'Period Comparison' : 
+               activeTab === 'funnel' ? 'Conversion Funnel' :
+               activeTab === 'keywords' ? 'Keyword Analysis' :
+               'Search Query Database'}
             </h2>
             <div className="h-4 w-px bg-gray-200"></div>
             <p className="text-[13px] text-gray-500 font-medium">
@@ -402,6 +532,27 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
+            {activeTab === 'dashboard' && (
+              <select 
+                value={dashboardMetric}
+                onChange={(e) => setDashboardMetric(e.target.value as keyof SQPData)}
+                className="bg-gray-100 border-none rounded-lg text-[12px] font-bold px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+              >
+                <option value="brandImpressionShare">Impression Share</option>
+                <option value="brandClickShare">Click Share</option>
+                <option value="brandPurchaseShare">Purchase Share</option>
+                <option value="volume">Search Volume</option>
+              </select>
+            )}
+            {activeTab === 'table' && (
+              <button 
+                onClick={exportToCSV}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg text-[13px] font-bold hover:bg-gray-50 transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export CSV
+              </button>
+            )}
             <div className="relative hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
               <input
@@ -459,6 +610,53 @@ export default function App() {
                 </div>
               </div>
 
+              {topMovers && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-emerald-500" />
+                      Top Growth Queries
+                    </h3>
+                    <div className="space-y-3">
+                      {topMovers.volume.map((m, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <span className="text-[13px] font-semibold text-gray-700 truncate max-w-[120px]">{m.query}</span>
+                          <span className="text-[12px] font-bold text-emerald-600">+{m.volumeDelta.toLocaleString()} vol</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-blue-500" />
+                      Share Gainers
+                    </h3>
+                    <div className="space-y-3">
+                      {topMovers.share.map((m, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <span className="text-[13px] font-semibold text-gray-700 truncate max-w-[120px]">{m.query}</span>
+                          <span className="text-[12px] font-bold text-blue-600">+{m.shareDelta.toFixed(1)}% share</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                      Top Declines
+                    </h3>
+                    <div className="space-y-3">
+                      {topMovers.decline.map((m, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <span className="text-[13px] font-semibold text-gray-700 truncate max-w-[120px]">{m.query}</span>
+                          <span className="text-[12px] font-bold text-red-600">{m.volumeDelta.toLocaleString()} vol</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
                 <h3 className="text-lg font-bold text-gray-900 mb-8">Metric Comparison Chart</h3>
                 <div className="h-[400px] w-full">
@@ -511,48 +709,48 @@ export default function App() {
                 <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                   <div className="flex items-center justify-between mb-6">
                     <div>
-                      <h3 className="text-base font-bold text-gray-900">Share Performance by Query</h3>
+                      <h3 className="text-base font-bold text-gray-900">Performance by Query</h3>
                       <p className="text-[13px] text-gray-500">Top 10 queries by search volume</p>
                     </div>
                     <div className="flex gap-3">
                       <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Impression</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Click</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Purchase</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                          {dashboardMetric === 'volume' ? 'Volume' : 
+                           dashboardMetric === 'brandImpressionShare' ? 'Impression Share' :
+                           dashboardMetric === 'brandClickShare' ? 'Click Share' : 'Purchase Share'}
+                        </span>
                       </div>
                     </div>
                   </div>
                   <div className="h-[400px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={shareTrendData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                      <BarChart data={topQueriesByVolume} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis 
-                          dataKey="name" 
+                          dataKey="query" 
                           axisLine={false} 
                           tickLine={false} 
-                          tick={{ fill: '#94a3b8', fontSize: 11 }}
+                          tick={{ fill: '#94a3b8', fontSize: 10 }}
                           interval={0}
+                          tickFormatter={(val) => val.length > 12 ? val.substring(0, 10) + '...' : val}
                         />
                         <YAxis 
                           axisLine={false} 
                           tickLine={false} 
-                          tick={{ fill: '#94a3b8', fontSize: 11 }}
-                          unit="%"
+                          tick={{ fill: '#94a3b8', fontSize: 10 }}
+                          unit={dashboardMetric === 'volume' ? '' : '%'}
                         />
                         <Tooltip 
                           cursor={{ fill: '#f8fafc' }}
-                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                         />
-                        <Bar dataKey="Impression Share" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
-                        <Bar dataKey="Click Share" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={12} />
-                        <Bar dataKey="Purchase Share" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={12} />
+                        <Bar 
+                          dataKey={dashboardMetric} 
+                          fill="#10b981" 
+                          radius={[4, 4, 0, 0]} 
+                          barSize={32}
+                        />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -638,6 +836,129 @@ export default function App() {
                         </div>
                       </div>
                     ))}
+                </div>
+              </div>
+            </div>
+          ) : activeTab === 'funnel' ? (
+            <div className="space-y-8">
+              <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+                <div className="mb-8">
+                  <h3 className="text-lg font-bold text-gray-900">Conversion Funnel</h3>
+                  <p className="text-sm text-gray-500">Brand performance vs Total Market across the shopping journey</p>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                  <div className="space-y-6">
+                    {funnelData.map((step, idx) => (
+                      <div key={idx} className="relative">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-bold text-gray-700">{step.step}</span>
+                          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                            {step.share.toFixed(1)}% Brand Share
+                          </span>
+                        </div>
+                        <div className="h-12 w-full bg-gray-100 rounded-xl overflow-hidden relative">
+                          <div 
+                            className="h-full bg-gray-200 transition-all duration-1000"
+                            style={{ width: `${(step.total / funnelData[0].total) * 100}%` }}
+                          ></div>
+                          <div 
+                            className="absolute inset-0 h-full bg-emerald-500 transition-all duration-1000"
+                            style={{ width: `${(step.brand / funnelData[0].total) * 100}%` }}
+                          ></div>
+                          <div className="absolute inset-0 flex items-center justify-between px-4 pointer-events-none">
+                            <span className="text-[10px] font-bold text-gray-600">Total: {step.total.toLocaleString()}</span>
+                            <span className="text-[10px] font-bold text-white">Brand: {step.brand.toLocaleString()}</span>
+                          </div>
+                        </div>
+                        {idx < funnelData.length - 1 && (
+                          <div className="flex justify-center my-1">
+                            <div className="w-px h-4 bg-gray-200"></div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-2xl p-8 border border-gray-100">
+                    <h4 className="text-sm font-bold text-gray-900 mb-6 uppercase tracking-widest">Funnel Insights</h4>
+                    <div className="space-y-6">
+                      <div className="flex gap-4">
+                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0">
+                          <MousePointer2 className="w-5 h-5 text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-1">Click-Through Rate</p>
+                          <p className="text-lg font-bold text-gray-900 font-mono">
+                            {((funnelData[1].brand / funnelData[0].brand) * 100).toFixed(2)}%
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">Market Avg: {((funnelData[1].total / funnelData[0].total) * 100).toFixed(2)}%</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0">
+                          <ShoppingCart className="w-5 h-5 text-amber-500" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-1">Cart Add Rate</p>
+                          <p className="text-lg font-bold text-gray-900 font-mono">
+                            {((funnelData[2].brand / funnelData[1].brand) * 100).toFixed(2)}%
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">Market Avg: {((funnelData[2].total / funnelData[1].total) * 100).toFixed(2)}%</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-gray-400 uppercase mb-1">Purchase Conversion</p>
+                          <p className="text-lg font-bold text-gray-900 font-mono">
+                            {((funnelData[3].brand / funnelData[2].brand) * 100).toFixed(2)}%
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">Market Avg: {((funnelData[3].total / funnelData[2].total) * 100).toFixed(2)}%</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : activeTab === 'keywords' ? (
+            <div className="space-y-8">
+              <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+                <div className="mb-8">
+                  <h3 className="text-lg font-bold text-gray-900">Keyword Insights</h3>
+                  <p className="text-sm text-gray-500">Performance breakdown by common search terms</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {keywordInsights.map((k, idx) => (
+                    <div key={idx} className="p-5 rounded-xl bg-gray-50 border border-gray-100 hover:border-emerald-200 transition-all group">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="px-3 py-1 bg-white rounded-full text-[13px] font-bold text-gray-900 shadow-sm group-hover:text-emerald-600">
+                          {k.word}
+                        </span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{k.count} Queries</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Total Volume</p>
+                          <p className="text-sm font-bold text-gray-900 font-mono">{k.volume.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Avg Share</p>
+                          <p className="text-sm font-bold text-emerald-600 font-mono">{k.avgShare.toFixed(1)}%</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-gray-200/50">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[11px] text-gray-500">Brand Purchases</span>
+                          <span className="text-[11px] font-bold text-gray-900 font-mono">{k.brandPurchases.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
