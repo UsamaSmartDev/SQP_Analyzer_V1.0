@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import Papa from 'papaparse';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell
+  LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter, ZAxis
 } from 'recharts';
 import { 
   Upload, FileText, BarChart3, Table as TableIcon, Download, 
@@ -37,6 +37,7 @@ interface SQPData {
   brandPurchaseShare: number;
   ctr: number;
   cvr: number;
+  type: 'branded' | 'generic';
   [key: string]: any;
 }
 
@@ -63,15 +64,16 @@ const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 // --- Sample Data ---
 
 const SAMPLE_DATA: SQPData[] = [
-  { query: 'organic coffee beans', volume: 12500, impressions: 45000, brandImpressions: 4500, brandImpressionShare: 10.0, clicks: 1200, brandClicks: 150, brandClickShare: 12.5, cartAdds: 450, brandCartAdds: 60, brandCartAddShare: 13.3, purchases: 120, brandPurchases: 25, brandPurchaseShare: 20.8, ctr: 2.67, cvr: 10.0 },
-  { query: 'dark roast coffee', volume: 8200, impressions: 32000, brandImpressions: 2800, brandImpressionShare: 8.75, clicks: 950, brandClicks: 110, brandClickShare: 11.5, cartAdds: 320, brandCartAdds: 40, brandCartAddShare: 12.5, purchases: 85, brandPurchases: 12, brandPurchaseShare: 14.1, ctr: 2.97, cvr: 8.95 },
-  { query: 'whole bean coffee', volume: 15000, impressions: 58000, brandImpressions: 6200, brandImpressionShare: 10.7, clicks: 1800, brandClicks: 240, brandClickShare: 13.3, cartAdds: 680, brandCartAdds: 95, brandCartAddShare: 14.0, purchases: 180, brandPurchases: 35, brandPurchaseShare: 19.4, ctr: 3.10, cvr: 10.0 },
+  { query: 'organic coffee beans', volume: 12500, impressions: 45000, brandImpressions: 4500, brandImpressionShare: 10.0, clicks: 1200, brandClicks: 150, brandClickShare: 12.5, cartAdds: 450, brandCartAdds: 60, brandCartAddShare: 13.3, purchases: 120, brandPurchases: 25, brandPurchaseShare: 20.8, ctr: 2.67, cvr: 10.0, type: 'generic' },
+  { query: 'dark roast coffee', volume: 8200, impressions: 32000, brandImpressions: 2800, brandImpressionShare: 8.75, clicks: 950, brandClicks: 110, brandClickShare: 11.5, cartAdds: 320, brandCartAdds: 40, brandCartAddShare: 12.5, purchases: 85, brandPurchases: 12, brandPurchaseShare: 14.1, ctr: 2.97, cvr: 8.95, type: 'generic' },
+  { query: 'whole bean coffee', volume: 15000, impressions: 58000, brandImpressions: 6200, brandImpressionShare: 10.7, clicks: 1800, brandClicks: 240, brandClickShare: 13.3, cartAdds: 680, brandCartAdds: 95, brandCartAddShare: 14.0, purchases: 180, brandPurchases: 35, brandPurchaseShare: 19.4, ctr: 3.10, cvr: 10.0, type: 'generic' },
 ];
 
 // --- Components ---
 
 export default function App() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [brandName, setBrandName] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'comparison' | 'funnel' | 'keywords'>('dashboard');
@@ -144,6 +146,7 @@ export default function App() {
                   brandPurchaseShare,
                   ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
                   cvr: clicks > 0 ? (purchases / clicks) * 100 : 0,
+                  type: brandName && query.toLowerCase().includes(brandName.toLowerCase()) ? 'branded' : 'generic'
                 };
               }).filter(item => item.query);
 
@@ -189,15 +192,20 @@ export default function App() {
   };
 
   const loadSampleData = () => {
+    const dataWithType = SAMPLE_DATA.map(d => ({
+      ...d,
+      type: brandName && d.query.toLowerCase().includes(brandName.toLowerCase()) ? 'branded' : 'generic'
+    })) as SQPData[];
+
     const summary: SummaryStats = {
-      totalQueries: SAMPLE_DATA.length,
-      totalVolume: SAMPLE_DATA.reduce((acc, curr) => acc + curr.volume, 0),
-      avgBrandImpressionShare: SAMPLE_DATA.reduce((acc, curr) => acc + curr.brandImpressionShare, 0) / SAMPLE_DATA.length,
-      avgBrandClickShare: SAMPLE_DATA.reduce((acc, curr) => acc + curr.brandClickShare, 0) / SAMPLE_DATA.length,
-      avgBrandPurchaseShare: SAMPLE_DATA.reduce((acc, curr) => acc + curr.brandPurchaseShare, 0) / SAMPLE_DATA.length,
-      totalBrandPurchases: SAMPLE_DATA.reduce((acc, curr) => acc + curr.brandPurchases, 0),
+      totalQueries: dataWithType.length,
+      totalVolume: dataWithType.reduce((acc, curr) => acc + curr.volume, 0),
+      avgBrandImpressionShare: dataWithType.reduce((acc, curr) => acc + curr.brandImpressionShare, 0) / dataWithType.length,
+      avgBrandClickShare: dataWithType.reduce((acc, curr) => acc + curr.brandClickShare, 0) / dataWithType.length,
+      avgBrandPurchaseShare: dataWithType.reduce((acc, curr) => acc + curr.brandPurchaseShare, 0) / dataWithType.length,
+      totalBrandPurchases: dataWithType.reduce((acc, curr) => acc + curr.brandPurchases, 0),
     };
-    setDatasets([{ id: 'sample', name: 'Sample Period', data: SAMPLE_DATA, summary }]);
+    setDatasets([{ id: 'sample', name: 'Sample Period', data: dataWithType, summary }]);
     setError(null);
   };
 
@@ -250,6 +258,26 @@ export default function App() {
       { step: 'Cart Adds', total: total.cartAdds, brand: brand.cartAdds, share: (brand.cartAdds / total.cartAdds) * 100 },
       { step: 'Purchases', total: total.purchases, brand: brand.purchases, share: (brand.purchases / total.purchases) * 100 },
     ];
+  }, [data]);
+
+  const segmentationStats = useMemo(() => {
+    if (!data.length) return null;
+    const branded = data.filter(d => d.type === 'branded');
+    const generic = data.filter(d => d.type === 'generic');
+
+    const getStats = (items: SQPData[]) => ({
+      count: items.length,
+      volume: items.reduce((acc, curr) => acc + curr.volume, 0),
+      purchases: items.reduce((acc, curr) => acc + curr.brandPurchases, 0),
+      avgShare: items.reduce((acc, curr) => acc + curr.brandPurchaseShare, 0) / (items.length || 1)
+    });
+
+    return {
+      branded: getStats(branded),
+      generic: getStats(generic),
+      totalVolume: data.reduce((acc, curr) => acc + curr.volume, 0),
+      totalPurchases: data.reduce((acc, curr) => acc + curr.brandPurchases, 0)
+    };
   }, [data]);
 
   const keywordInsights = useMemo(() => {
@@ -492,6 +520,23 @@ export default function App() {
         </nav>
 
         <div className="p-4 mt-auto">
+          <div className="mb-6 px-4">
+            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-2">My Brand Name</p>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Enter brand name..."
+                value={brandName}
+                onChange={(e) => setBrandName(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 outline-none placeholder:text-gray-300"
+              />
+              {brandName && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+              )}
+            </div>
+            <p className="text-[9px] text-gray-400 mt-1.5 italic">Used for Branded vs Generic segmentation</p>
+          </div>
+
           <div className="mb-4 px-4">
             <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-2">Active Periods</p>
             <div className="space-y-1">
@@ -702,6 +747,164 @@ export default function App() {
                   icon={<CheckCircle2 className="w-5 h-5 text-purple-600" />}
                   color="purple"
                 />
+              </div>
+
+              {/* Advanced Insights Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Branded vs Generic Segmentation */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900">Brand Segmentation</h3>
+                      <p className="text-[12px] text-gray-500">Branded vs Generic performance</p>
+                    </div>
+                    <Info className="w-4 h-4 text-gray-300 cursor-help" />
+                  </div>
+                  
+                  {segmentationStats ? (
+                    <>
+                      <div className="h-[200px] w-full relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Branded', value: segmentationStats.branded.volume },
+                                { name: 'Generic', value: segmentationStats.generic.volume },
+                              ]}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              <Cell fill="#10b981" />
+                              <Cell fill="#3b82f6" />
+                            </Pie>
+                            <Tooltip 
+                              formatter={(value: number) => [`${((value / segmentationStats.totalVolume) * 100).toFixed(1)}%`, 'Volume Share']}
+                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                          <span className="text-lg font-bold text-gray-900 font-mono">
+                            {((segmentationStats.branded.volume / segmentationStats.totalVolume) * 100).toFixed(0)}%
+                          </span>
+                          <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider">Branded</span>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-6 grid grid-cols-2 gap-4">
+                        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                          <p className="text-[10px] font-bold text-emerald-700 uppercase mb-1">Branded Share</p>
+                          <p className="text-lg font-bold text-emerald-900 font-mono">{segmentationStats.branded.avgShare.toFixed(1)}%</p>
+                          <p className="text-[10px] text-emerald-600 mt-1">{segmentationStats.branded.purchases} Purchases</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-blue-50 border border-blue-100">
+                          <p className="text-[10px] font-bold text-blue-700 uppercase mb-1">Generic Share</p>
+                          <p className="text-lg font-bold text-blue-900 font-mono">{segmentationStats.generic.avgShare.toFixed(1)}%</p>
+                          <p className="text-[10px] text-blue-600 mt-1">{segmentationStats.generic.purchases} Purchases</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-[200px] flex items-center justify-center text-gray-400 text-sm italic">
+                      Enter brand name to see segmentation
+                    </div>
+                  )}
+                </div>
+
+                {/* Efficiency Matrix (Scatter Chart) */}
+                <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900">Efficiency Matrix</h3>
+                      <p className="text-[12px] text-gray-500">Impression Share vs Purchase Share (Bubble size = Volume)</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                        Branded
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        Generic
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="h-[350px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis 
+                          type="number" 
+                          dataKey="brandImpressionShare" 
+                          name="Impression Share" 
+                          unit="%" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fill: '#94a3b8', fontSize: 10 }}
+                          label={{ value: 'Impression Share %', position: 'bottom', offset: 0, fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }}
+                        />
+                        <YAxis 
+                          type="number" 
+                          dataKey="brandPurchaseShare" 
+                          name="Purchase Share" 
+                          unit="%" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fill: '#94a3b8', fontSize: 10 }}
+                          label={{ value: 'Purchase Share %', angle: -90, position: 'left', fill: '#94a3b8', fontSize: 10, fontWeight: 'bold' }}
+                        />
+                        <ZAxis type="number" dataKey="volume" range={[50, 400]} name="Volume" />
+                        <Tooltip 
+                          cursor={{ strokeDasharray: '3 3' }}
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-white p-3 rounded-xl shadow-xl border border-gray-100">
+                                  <p className="text-[13px] font-bold text-gray-900 mb-2">{data.query}</p>
+                                  <div className="space-y-1">
+                                    <div className="flex justify-between gap-4">
+                                      <span className="text-[11px] text-gray-500">Imp. Share:</span>
+                                      <span className="text-[11px] font-bold text-gray-900">{data.brandImpressionShare.toFixed(1)}%</span>
+                                    </div>
+                                    <div className="flex justify-between gap-4">
+                                      <span className="text-[11px] text-gray-500">Purch. Share:</span>
+                                      <span className="text-[11px] font-bold text-emerald-600">{data.brandPurchaseShare.toFixed(1)}%</span>
+                                    </div>
+                                    <div className="flex justify-between gap-4">
+                                      <span className="text-[11px] text-gray-500">Volume:</span>
+                                      <span className="text-[11px] font-bold text-gray-900">{data.volume.toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Scatter 
+                          name="Branded" 
+                          data={data.filter(d => d.type === 'branded')} 
+                          fill="#10b981" 
+                          fillOpacity={0.6}
+                          stroke="#059669"
+                        />
+                        <Scatter 
+                          name="Generic" 
+                          data={data.filter(d => d.type === 'generic')} 
+                          fill="#3b82f6" 
+                          fillOpacity={0.6}
+                          stroke="#2563eb"
+                        />
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
 
               {/* Charts Row */}
@@ -971,6 +1174,9 @@ export default function App() {
                       <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600" onClick={() => requestSort('query')}>
                         <div className="flex items-center gap-2">Search Query <ArrowUpDown className="w-3 h-3" /></div>
                       </th>
+                      <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600" onClick={() => requestSort('type')}>
+                        <div className="flex items-center gap-2">Type <ArrowUpDown className="w-3 h-3" /></div>
+                      </th>
                       <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-gray-600" onClick={() => requestSort('volume')}>
                         <div className="flex items-center gap-2">Volume <ArrowUpDown className="w-3 h-3" /></div>
                       </th>
@@ -995,6 +1201,14 @@ export default function App() {
                     {filteredData.map((item, idx) => (
                       <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4 text-[13px] font-semibold text-gray-900">{item.query}</td>
+                        <td className="px-6 py-4">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                            item.type === 'branded' ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+                          )}>
+                            {item.type}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 text-[13px] text-gray-600 font-mono">{item.volume.toLocaleString()}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
