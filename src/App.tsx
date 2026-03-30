@@ -51,10 +51,20 @@ interface Dataset {
 interface SummaryStats {
   totalQueries: number;
   totalVolume: number;
+  totalImpressions: number;
+  totalBrandImpressions: number;
   avgBrandImpressionShare: number;
+  totalClicks: number;
+  totalBrandClicks: number;
   avgBrandClickShare: number;
-  avgBrandPurchaseShare: number;
+  totalCartAdds: number;
+  totalBrandCartAdds: number;
+  avgBrandCartAddShare: number;
+  totalPurchases: number;
   totalBrandPurchases: number;
+  avgBrandPurchaseShare: number;
+  avgCtr: number;
+  avgCvr: number;
 }
 
 // --- Constants ---
@@ -155,10 +165,20 @@ export default function App() {
               const summary: SummaryStats = {
                 totalQueries: data.length,
                 totalVolume: data.reduce((acc, curr) => acc + curr.volume, 0),
+                totalImpressions: data.reduce((acc, curr) => acc + curr.impressions, 0),
+                totalBrandImpressions: data.reduce((acc, curr) => acc + curr.brandImpressions, 0),
                 avgBrandImpressionShare: data.reduce((acc, curr) => acc + curr.brandImpressionShare, 0) / data.length,
+                totalClicks: data.reduce((acc, curr) => acc + curr.clicks, 0),
+                totalBrandClicks: data.reduce((acc, curr) => acc + curr.brandClicks, 0),
                 avgBrandClickShare: data.reduce((acc, curr) => acc + curr.brandClickShare, 0) / data.length,
-                avgBrandPurchaseShare: data.reduce((acc, curr) => acc + curr.brandPurchaseShare, 0) / data.length,
+                totalCartAdds: data.reduce((acc, curr) => acc + curr.cartAdds, 0),
+                totalBrandCartAdds: data.reduce((acc, curr) => acc + curr.brandCartAdds, 0),
+                avgBrandCartAddShare: data.reduce((acc, curr) => acc + curr.brandCartAddShare, 0) / data.length,
+                totalPurchases: data.reduce((acc, curr) => acc + curr.purchases, 0),
                 totalBrandPurchases: data.reduce((acc, curr) => acc + curr.brandPurchases, 0),
+                avgBrandPurchaseShare: data.reduce((acc, curr) => acc + curr.brandPurchaseShare, 0) / data.length,
+                avgCtr: data.reduce((acc, curr) => acc + curr.ctr, 0) / data.length,
+                avgCvr: data.reduce((acc, curr) => acc + curr.cvr, 0) / data.length,
               };
 
               resolve({ id: Math.random().toString(36).substr(2, 9), name: datasetName, data, summary });
@@ -200,10 +220,20 @@ export default function App() {
     const summary: SummaryStats = {
       totalQueries: dataWithType.length,
       totalVolume: dataWithType.reduce((acc, curr) => acc + curr.volume, 0),
+      totalImpressions: dataWithType.reduce((acc, curr) => acc + curr.impressions, 0),
+      totalBrandImpressions: dataWithType.reduce((acc, curr) => acc + curr.brandImpressions, 0),
       avgBrandImpressionShare: dataWithType.reduce((acc, curr) => acc + curr.brandImpressionShare, 0) / dataWithType.length,
+      totalClicks: dataWithType.reduce((acc, curr) => acc + curr.clicks, 0),
+      totalBrandClicks: dataWithType.reduce((acc, curr) => acc + curr.brandClicks, 0),
       avgBrandClickShare: dataWithType.reduce((acc, curr) => acc + curr.brandClickShare, 0) / dataWithType.length,
-      avgBrandPurchaseShare: dataWithType.reduce((acc, curr) => acc + curr.brandPurchaseShare, 0) / dataWithType.length,
+      totalCartAdds: dataWithType.reduce((acc, curr) => acc + curr.cartAdds, 0),
+      totalBrandCartAdds: dataWithType.reduce((acc, curr) => acc + curr.brandCartAdds, 0),
+      avgBrandCartAddShare: dataWithType.reduce((acc, curr) => acc + curr.brandCartAddShare, 0) / dataWithType.length,
+      totalPurchases: dataWithType.reduce((acc, curr) => acc + curr.purchases, 0),
       totalBrandPurchases: dataWithType.reduce((acc, curr) => acc + curr.brandPurchases, 0),
+      avgBrandPurchaseShare: dataWithType.reduce((acc, curr) => acc + curr.brandPurchaseShare, 0) / dataWithType.length,
+      avgCtr: dataWithType.reduce((acc, curr) => acc + curr.ctr, 0) / dataWithType.length,
+      avgCvr: dataWithType.reduce((acc, curr) => acc + curr.cvr, 0) / dataWithType.length,
     };
     setDatasets([{ id: 'sample', name: 'Sample Period', data: dataWithType, summary }]);
     setError(null);
@@ -220,9 +250,20 @@ export default function App() {
 
     const metrics = [
       { label: 'Search Volume', key: 'totalVolume', current: current.summary.totalVolume, previous: previous.summary.totalVolume },
+      { label: 'Total Impressions', key: 'totalImpressions', current: current.summary.totalImpressions, previous: previous.summary.totalImpressions },
+      { label: 'Brand Impressions', key: 'totalBrandImpressions', current: current.summary.totalBrandImpressions, previous: previous.summary.totalBrandImpressions },
       { label: 'Impression Share', key: 'avgBrandImpressionShare', current: current.summary.avgBrandImpressionShare, previous: previous.summary.avgBrandImpressionShare, unit: '%' },
-      { label: 'Purchase Share', key: 'avgBrandPurchaseShare', current: current.summary.avgBrandPurchaseShare, previous: previous.summary.avgBrandPurchaseShare, unit: '%' },
+      { label: 'Total Clicks', key: 'totalClicks', current: current.summary.totalClicks, previous: previous.summary.totalClicks },
+      { label: 'Brand Clicks', key: 'totalBrandClicks', current: current.summary.totalBrandClicks, previous: previous.summary.totalBrandClicks },
+      { label: 'Click Share', key: 'avgBrandClickShare', current: current.summary.avgBrandClickShare, previous: previous.summary.avgBrandClickShare, unit: '%' },
+      { label: 'Total Cart Adds', key: 'totalCartAdds', current: current.summary.totalCartAdds, previous: previous.summary.totalCartAdds },
+      { label: 'Brand Cart Adds', key: 'totalBrandCartAdds', current: current.summary.totalBrandCartAdds, previous: previous.summary.totalBrandCartAdds },
+      { label: 'Cart Add Share', key: 'avgBrandCartAddShare', current: current.summary.avgBrandCartAddShare, previous: previous.summary.avgBrandCartAddShare, unit: '%' },
+      { label: 'Total Purchases', key: 'totalPurchases', current: current.summary.totalPurchases, previous: previous.summary.totalPurchases },
       { label: 'Brand Purchases', key: 'totalBrandPurchases', current: current.summary.totalBrandPurchases, previous: previous.summary.totalBrandPurchases },
+      { label: 'Purchase Share', key: 'avgBrandPurchaseShare', current: current.summary.avgBrandPurchaseShare, previous: previous.summary.avgBrandPurchaseShare, unit: '%' },
+      { label: 'Brand CTR', key: 'avgCtr', current: current.summary.avgCtr, previous: previous.summary.avgCtr, unit: '%' },
+      { label: 'Brand CVR', key: 'avgCvr', current: current.summary.avgCvr, previous: previous.summary.avgCvr, unit: '%' },
     ];
 
     return {
@@ -625,100 +666,169 @@ export default function App() {
         </header>
 
         <div className="p-8 max-w-7xl mx-auto">
-          {activeTab === 'comparison' && comparisonData ? (
-            <div className="space-y-8">
-              <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900">Performance Delta</h3>
-                    <p className="text-[13px] text-gray-500">Comparing {comparisonData.periods.current} vs {comparisonData.periods.previous}</p>
+          {activeTab === 'comparison' ? (
+            comparisonData ? (
+              <div className="space-y-8">
+                <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900">Performance Delta</h3>
+                      <p className="text-[13px] text-gray-500">Comparing {comparisonData.periods.current} vs {comparisonData.periods.previous}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {comparisonData.metrics.map((m, idx) => (
-                    <div key={idx} className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{m.label}</p>
-                      <div className="flex items-end justify-between">
-                        <div>
-                          <h4 className="text-lg font-bold text-gray-900 font-mono">{m.current.toLocaleString()}{m.unit}</h4>
-                          <p className="text-[10px] text-gray-400">Prev: {m.previous.toLocaleString()}{m.unit}</p>
-                        </div>
-                        <div className={cn(
-                          "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold",
-                          m.delta >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                        )}>
-                          {m.delta >= 0 ? '+' : ''}{m.percentChange.toFixed(1)}%
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {comparisonData.metrics.map((m, idx) => (
+                      <div key={idx} className="p-4 rounded-xl bg-gray-50 border border-gray-100">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{m.label}</p>
+                        <div className="flex items-end justify-between">
+                          <div>
+                            <h4 className="text-lg font-bold text-gray-900 font-mono">
+                              {m.unit === '%' ? m.current.toFixed(1) : m.current.toLocaleString()}{m.unit}
+                            </h4>
+                            <p className="text-[10px] text-gray-400">Prev: {m.unit === '%' ? m.previous.toFixed(1) : m.previous.toLocaleString()}{m.unit}</p>
+                          </div>
+                          <div className={cn(
+                            "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold",
+                            m.delta >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                          )}>
+                            {m.delta >= 0 ? '+' : ''}{m.percentChange.toFixed(1)}%
+                          </div>
                         </div>
                       </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-12 overflow-hidden rounded-2xl border border-gray-100">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50/50 border-b border-gray-100">
+                          <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Metric</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest">{comparisonData.periods.previous}</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest">{comparisonData.periods.current}</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Delta</th>
+                          <th className="px-6 py-4 text-[11px] font-bold text-gray-400 uppercase tracking-widest">% Change</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {comparisonData.metrics.map((m, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-6 py-4 text-[13px] font-semibold text-gray-900">{m.label}</td>
+                            <td className="px-6 py-4 text-[13px] text-gray-600 font-mono">
+                              {m.unit === '%' ? m.previous.toFixed(2) : m.previous.toLocaleString()}{m.unit}
+                            </td>
+                            <td className="px-6 py-4 text-[13px] text-gray-900 font-bold font-mono">
+                              {m.unit === '%' ? m.current.toFixed(2) : m.current.toLocaleString()}{m.unit}
+                            </td>
+                            <td className={cn(
+                              "px-6 py-4 text-[13px] font-bold font-mono",
+                              m.delta >= 0 ? "text-emerald-600" : "text-red-600"
+                            )}>
+                              {m.delta >= 0 ? '+' : ''}{m.unit === '%' ? m.delta.toFixed(2) : m.delta.toLocaleString()}{m.unit}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={cn(
+                                "px-2 py-1 rounded text-[11px] font-bold",
+                                m.percentChange >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                              )}>
+                                {m.percentChange >= 0 ? '+' : ''}{m.percentChange.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {topMovers && (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                      <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-emerald-500" />
+                        Top Growth Queries
+                      </h3>
+                      <div className="space-y-3">
+                        {topMovers.volume.map((m, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <span className="text-[13px] font-semibold text-gray-700 truncate max-w-[120px]">{m.query}</span>
+                            <span className="text-[12px] font-bold text-emerald-600">+{m.volumeDelta.toLocaleString()} vol</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
+                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                      <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-blue-500" />
+                        Share Gainers
+                      </h3>
+                      <div className="space-y-3">
+                        {topMovers.share.map((m, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <span className="text-[13px] font-semibold text-gray-700 truncate max-w-[120px]">{m.query}</span>
+                            <span className="text-[12px] font-bold text-blue-600">+{m.shareDelta.toFixed(1)}% share</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                      <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-500" />
+                        Top Declines
+                      </h3>
+                      <div className="space-y-3">
+                        {topMovers.decline.map((m, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <span className="text-[13px] font-semibold text-gray-700 truncate max-w-[120px]">{m.query}</span>
+                            <span className="text-[12px] font-bold text-red-600">{m.volumeDelta.toLocaleString()} vol</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
+                  <h3 className="text-lg font-bold text-gray-900 mb-8">Metric Comparison Chart</h3>
+                  <div className="h-[400px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={datasets} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                        <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                        <Legend />
+                        <Bar dataKey="summary.totalVolume" name="Search Volume" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="summary.totalBrandPurchases" name="Purchases" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
-
-              {topMovers && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-emerald-500" />
-                      Top Growth Queries
-                    </h3>
-                    <div className="space-y-3">
-                      {topMovers.volume.map((m, i) => (
-                        <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <span className="text-[13px] font-semibold text-gray-700 truncate max-w-[120px]">{m.query}</span>
-                          <span className="text-[12px] font-bold text-emerald-600">+{m.volumeDelta.toLocaleString()} vol</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-blue-500" />
-                      Share Gainers
-                    </h3>
-                    <div className="space-y-3">
-                      {topMovers.share.map((m, i) => (
-                        <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <span className="text-[13px] font-semibold text-gray-700 truncate max-w-[120px]">{m.query}</span>
-                          <span className="text-[12px] font-bold text-blue-600">+{m.shareDelta.toFixed(1)}% share</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                      Top Declines
-                    </h3>
-                    <div className="space-y-3">
-                      {topMovers.decline.map((m, i) => (
-                        <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <span className="text-[13px] font-semibold text-gray-700 truncate max-w-[120px]">{m.query}</span>
-                          <span className="text-[12px] font-bold text-red-600">{m.volumeDelta.toLocaleString()} vol</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
+                <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6">
+                  <Database className="w-8 h-8 text-emerald-500" />
                 </div>
-              )}
-
-              <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
-                <h3 className="text-lg font-bold text-gray-900 mb-8">Metric Comparison Chart</h3>
-                <div className="h-[400px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={datasets} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                      <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                      <Legend />
-                      <Bar dataKey="summary.totalVolume" name="Search Volume" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="summary.totalBrandPurchases" name="Purchases" fill="#10b981" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Compare Two Reports</h3>
+                <p className="text-gray-500 text-center max-w-md mb-8">
+                  Upload a second Search Query Performance report to see detailed deltas, 
+                  growth trends, and share changes across all metrics.
+                </p>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <button className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200">
+                    <Upload className="w-5 h-5" />
+                    Upload Second Report
+                  </button>
                 </div>
               </div>
-            </div>
+            )
           ) : activeTab === 'dashboard' ? (
             <div className="space-y-8">
               {/* Stats Grid */}
