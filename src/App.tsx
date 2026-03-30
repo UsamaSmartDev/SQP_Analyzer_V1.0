@@ -87,6 +87,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'comparison' | 'funnel' | 'keywords'>('dashboard');
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
+  const [comparisonPeriodIds, setComparisonPeriodIds] = useState<{ current: string | null; previous: string | null }>({ current: null, previous: null });
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: keyof SQPData; direction: 'asc' | 'desc' } | null>(null);
   const [dashboardMetric, setDashboardMetric] = useState<keyof SQPData>('brandImpressionShare');
@@ -202,7 +204,19 @@ export default function App() {
 
     try {
       const newDatasets = await Promise.all(Array.from(files).map(parseFile));
-      setDatasets(prev => [...prev, ...newDatasets].sort((a, b) => a.name.localeCompare(b.name)));
+      setDatasets(prev => {
+        const updated = [...prev, ...newDatasets].sort((a, b) => a.name.localeCompare(b.name));
+        if (updated.length > 0) {
+          setSelectedPeriodId(updated[updated.length - 1].id);
+          if (updated.length >= 2) {
+            setComparisonPeriodIds({
+              current: updated[updated.length - 1].id,
+              previous: updated[updated.length - 2].id
+            });
+          }
+        }
+        return updated;
+      });
       if (newDatasets.length > 1 || datasets.length > 0) setActiveTab('comparison');
       setLoading(false);
     } catch (err: any) {
@@ -235,18 +249,35 @@ export default function App() {
       avgCtr: dataWithType.reduce((acc, curr) => acc + curr.ctr, 0) / dataWithType.length,
       avgCvr: dataWithType.reduce((acc, curr) => acc + curr.cvr, 0) / dataWithType.length,
     };
-    setDatasets([{ id: 'sample', name: 'Sample Period', data: dataWithType, summary }]);
+    const newDataset: Dataset = { id: 'sample', name: 'Sample Period', data: dataWithType, summary };
+    setDatasets([newDataset]);
+    setSelectedPeriodId(newDataset.id);
     setError(null);
   };
 
-  const activeDataset = datasets[datasets.length - 1];
+  const activeDataset = useMemo(() => {
+    if (!selectedPeriodId) return datasets[datasets.length - 1];
+    return datasets.find(d => d.id === selectedPeriodId) || datasets[datasets.length - 1];
+  }, [datasets, selectedPeriodId]);
+
   const data = activeDataset?.data || [];
-  const summaryStats = activeDataset?.summary || { totalQueries: 0, totalVolume: 0, avgBrandImpressionShare: 0, avgBrandClickShare: 0, avgBrandPurchaseShare: 0, totalBrandPurchases: 0 };
+  const summaryStats = activeDataset?.summary || { 
+    totalQueries: 0, totalVolume: 0, totalImpressions: 0, totalBrandImpressions: 0,
+    avgBrandImpressionShare: 0, totalClicks: 0, totalBrandClicks: 0, avgBrandClickShare: 0,
+    totalCartAdds: 0, totalBrandCartAdds: 0, avgBrandCartAddShare: 0, totalPurchases: 0,
+    totalBrandPurchases: 0, avgBrandPurchaseShare: 0, avgCtr: 0, avgCvr: 0 
+  };
 
   const comparisonData = useMemo(() => {
     if (datasets.length < 2) return null;
-    const current = datasets[datasets.length - 1];
-    const previous = datasets[datasets.length - 2];
+    
+    let current = datasets.find(d => d.id === comparisonPeriodIds.current);
+    let previous = datasets.find(d => d.id === comparisonPeriodIds.previous);
+
+    if (!current || !previous) {
+      current = datasets[datasets.length - 1];
+      previous = datasets[datasets.length - 2];
+    }
 
     const metrics = [
       { label: 'Search Volume', key: 'totalVolume', current: current.summary.totalVolume, previous: previous.summary.totalVolume },
@@ -618,6 +649,20 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
+            {datasets.length > 0 && activeTab !== 'comparison' && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Active Period:</span>
+                <select 
+                  value={selectedPeriodId || ''}
+                  onChange={(e) => setSelectedPeriodId(e.target.value)}
+                  className="bg-gray-100 border-none rounded-lg text-[12px] font-bold px-3 py-1.5 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                >
+                  {datasets.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {activeTab === 'dashboard' && (
               <select 
                 value={dashboardMetric}
@@ -674,6 +719,32 @@ export default function App() {
                     <div>
                       <h3 className="text-base font-bold text-gray-900">Performance Delta</h3>
                       <p className="text-[13px] text-gray-500">Comparing {comparisonData.periods.current} vs {comparisonData.periods.previous}</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Previous Period</span>
+                        <select 
+                          value={comparisonPeriodIds.previous || ''}
+                          onChange={(e) => setComparisonPeriodIds(prev => ({ ...prev, previous: e.target.value }))}
+                          className="bg-gray-50 border border-gray-200 rounded-lg text-[12px] font-bold px-3 py-1.5 outline-none"
+                        >
+                          {datasets.map(d => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Current Period</span>
+                        <select 
+                          value={comparisonPeriodIds.current || ''}
+                          onChange={(e) => setComparisonPeriodIds(prev => ({ ...prev, current: e.target.value }))}
+                          className="bg-gray-50 border border-gray-200 rounded-lg text-[12px] font-bold px-3 py-1.5 outline-none"
+                        >
+                          {datasets.map(d => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
