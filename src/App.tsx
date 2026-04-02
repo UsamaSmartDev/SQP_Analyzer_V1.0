@@ -101,17 +101,32 @@ export default function App() {
         
         // Extract metadata for naming
         const firstLine = text.split('\n')[0];
-        const weekMatch = firstLine.match(/Select week=\["(.*?)"\]/);
-        const monthMatch = firstLine.match(/Select month=\["(.*?)"\]/);
-        const rangeMatch = firstLine.match(/Reporting Range=\["(.*?)"\]/);
+        
+        const extractMetadata = (key: string) => {
+          const regex = new RegExp(`${key}=\\[?"?(.*?)"?\\]?`);
+          const match = firstLine.match(regex);
+          if (!match) return null;
+          return match[1].replace(/^"+|"+$/g, '').trim();
+        };
+
+        const week = extractMetadata('Select week');
+        const month = extractMetadata('Select month');
+        const range = extractMetadata('Reporting Range');
         
         let datasetName = file.name;
-        if (weekMatch) datasetName = weekMatch[1].split('|')[0].trim();
-        else if (monthMatch) datasetName = monthMatch[1];
-        else if (rangeMatch) datasetName = `${rangeMatch[1]} Report`;
+        if (week) datasetName = week.split('|')[0].trim();
+        else if (month) datasetName = month;
+        else if (range) datasetName = `${range} Report`;
 
-        const headerIndex = text.indexOf('"Search Query"');
-        const cleanText = headerIndex !== -1 ? text.substring(headerIndex) : text;
+        const lines = text.split('\n');
+        let headerLineIndex = lines.findIndex(line => 
+          line.trim().startsWith('Search Query') || 
+          line.trim().startsWith('"Search Query"') || 
+          line.toLowerCase().includes('search query,') ||
+          line.toLowerCase().includes('"search query",')
+        );
+
+        const cleanText = headerLineIndex !== -1 ? lines.slice(headerLineIndex).join('\n') : text;
 
         Papa.parse(cleanText, {
           header: true,
@@ -119,14 +134,16 @@ export default function App() {
           complete: (results) => {
             try {
               const data = results.data.map((row: any) => {
+                const rowKeys = Object.keys(row);
                 const getVal = (keys: string[]) => {
                   for (const key of keys) {
-                    if (row[key] !== undefined && row[key] !== null && row[key] !== '') return row[key];
+                    const foundKey = rowKeys.find(rk => rk.trim().toLowerCase() === key.toLowerCase());
+                    if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null && row[foundKey] !== '') return row[foundKey];
                   }
                   return 0;
                 };
 
-                const query = row['Search Query'] || row['search_query'] || '';
+                const query = String(getVal(['Search Query', 'search_query']) || '').trim();
                 const volume = parseFloat(String(getVal(['Search Query Volume', 'search_query_volume'])).replace(/,/g, '')) || 0;
                 const impressions = parseFloat(String(getVal(['Impressions: Total Count', 'impressions_total_count'])).replace(/,/g, '')) || 0;
                 const brandImpressions = parseFloat(String(getVal(['Impressions: Brand Count', 'Impressions: ASIN Count', 'impressions_brand_count'])).replace(/,/g, '')) || 0;
